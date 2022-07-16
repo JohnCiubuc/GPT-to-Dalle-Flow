@@ -6,48 +6,34 @@ Created on Fri Jul 15 18:54:26 2022
 @author: inathero
 """
 
-openai_secret_key = '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'
-
-import os
 import openai
+from PIL import Image
+from docarray import Document
 
-openai.api_key = os.getenv(openai_secret_key)
+openai_secret_key = 'SECRET KEY HERE'
+dalle_server_url = 'grpcs://dalle-flow.dev.jina.ai'
+
+prompt = "generate a dalle wallpaper description"
+
+openai.api_key = openai_secret_key
 
 response = openai.Completion.create(
   model="text-davinci-002",
-  prompt="",
+  prompt=prompt,
   temperature=0.7,
-  max_tokens=256,
+  max_tokens=100,
   top_p=1,
   frequency_penalty=0,
   presence_penalty=0
 )
 
+prompt = response['choices'][0]['text'].strip()
+print(f'DALLE Prompt: {prompt}')
+print('Getting goodies from DALLE. This can take like 5 minutes')
 
-server_url = 'grpcs://dalle-flow.dev.jina.ai'
-prompt = 'an oil painting of a humanoid robot playing chess in the style of Matisse'
-from docarray import Document
-
-da = Document(text=prompt).post(server_url, parameters={'num_images': 2}).matches
-
-da.plot_image_sprites(fig_size=(10,10), show_index=True)
-fav_id = 3
-
-fav = da[fav_id]
-
-fav.display()
-
-diffused = fav.post(f'{server_url}', parameters={'skip_rate': 0.6, 'num_images': 4}, target_executor='diffusion').matches
-
-diffused.plot_image_sprites(fig_size=(10,10), show_index=True)
-
-
-dfav_id = 2
-
-fav = diffused[dfav_id]
-
-fav.display()
-
-
-fav = fav.post(f'{server_url}/upscale')
-fav.display()
+da = Document(text=prompt).post(dalle_server_url, parameters={'num_images': 1}).matches
+fav = da[0].post(f'{dalle_server_url}/upscale')
+tensor_d = fav.load_uri_to_image_tensor()
+image = Image.fromarray(tensor_d.tensor)
+image = image.resize((1920,1080), resample=Image.BOX)
+image.save('dalle_wallpaper.png')
